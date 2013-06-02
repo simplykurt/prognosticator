@@ -1,6 +1,12 @@
+target/
 *.class
-
-# Package Files #
-*.jar
-*.war
-*.ear
+.idea
+*.iml
+.project
+.classpath
+.settings
+*~
+atlassian-ide-plugin.xml
+.DS_Store
+\#*
+.\#*

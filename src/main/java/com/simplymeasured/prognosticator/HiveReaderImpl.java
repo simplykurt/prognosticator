@@ -16,8 +16,6 @@
 
 package com.simplymeasured.prognosticator;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -29,15 +27,10 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hcatalog.api.HCatClient;
 import org.apache.hcatalog.api.HCatTable;
 import org.apache.hcatalog.data.schema.HCatFieldSchema;
-import org.apache.hcatalog.data.schema.HCatSchema;
 import org.springframework.beans.factory.annotation.Required;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.NavigableMap;
 
 /**
  * Reads rows back from HBase in a format that works with Hive.

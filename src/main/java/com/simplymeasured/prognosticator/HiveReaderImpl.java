@@ -67,7 +67,7 @@ public class HiveReaderImpl implements HiveReader {
         HCatTable table = hcatClient.getTable("default", tableName);
         String hbaseTableName = HiveUtils.getTableName(table);
 
-        HTableInterface tableInterface = new HTable(hbaseConfiguration, tableName);
+        HTableInterface tableInterface = new HTable(hbaseConfiguration, hbaseTableName);
 
         try {
             List<HCatFieldSchema> columns = table.getCols();
@@ -75,7 +75,7 @@ public class HiveReaderImpl implements HiveReader {
             HCatFieldSchema keyColumn = columns.get(0);
 
             // we use the serializer to build the row key
-            HiveWriterImpl.Serializer serializer = new HiveWriterImpl.Serializer(table);
+            HiveSerializer serializer = new HiveSerializer(table);
             final byte[] rowKey;
 
             if(keyObject instanceof Map) {
@@ -92,7 +92,7 @@ public class HiveReaderImpl implements HiveReader {
 
             Result dbResult = tableInterface.get(get);
 
-            Deserializer deserializer = new Deserializer(table, dbResult);
+            HiveDeserializer deserializer = new HiveDeserializer(table, dbResult);
 
             result = deserializer.deserialize();
 
@@ -112,248 +112,5 @@ public class HiveReaderImpl implements HiveReader {
     @Required
     public void setHBaseConfiguration(Configuration hbaseConfiguration) {
         this.hbaseConfiguration = hbaseConfiguration;
-    }
-
-    public class Deserializer {
-        protected byte[] separators;
-        private HCatTable table;
-        private Result dbResult;
-
-        public Deserializer(HCatTable table, Result dbResult) {
-            this.table = table;
-            this.dbResult = dbResult;
-
-            this.separators = HiveUtils.getSeparators(table);
-        }
-
-        public Map<String, Object> deserialize() throws IOException {
-            Map<String, Object> result = Maps.newHashMap();
-
-            List<String> columnMappings = HiveUtils.getColumnMappings(table);
-
-            List<HCatFieldSchema> columns = table.getCols();
-
-            HCatFieldSchema identifier = columns.get(0);
-            result.put(identifier.getName(), deserializeHiveType(identifier, null, dbResult.getRow(), 1));
-
-            for(int i = 1; i < columns.size(); i++) {
-                HCatFieldSchema field = columns.get(i);
-
-                // column family is determined by mapping
-                final String columnFamily;
-                // column name is mostly determined by the mapping, unless
-                // we're dealing with a Hive MAP, at that case, the column name
-                // is the key in the map
-                String columnName = "";
-
-                if(columnMappings != null) {
-                    String[] mappingInfo = columnMappings.get(i).split(":");
-                    columnFamily = mappingInfo[0];
-
-                    if(mappingInfo.length > 1) {
-                        columnName = mappingInfo[1];
-                    }
-                } else {
-                    columnFamily = "default";
-                    columnName = field.getName();
-                }
-
-                NavigableMap<byte[], byte[]> familyMap = dbResult.getFamilyMap(Bytes.toBytes(columnFamily));
-
-                if(familyMap != null && !familyMap.isEmpty()) {
-                    result.put(columnName, deserializeHiveType(field, null, familyMap.get(Bytes.toBytes(columnName)),
-                            1));
-                } else {
-                    result.put(columnName, null);
-                }
-            }
-
-            return result;
-        }
-
-        /**
-         * Deserialize an HBase byte array to an object per the HCatalog schema
-         *
-         * @param field field to deserialize
-         * @param customType custom overridden type (used during recursion) - can be null
-         * @param object the byte array to deserialize
-         * @param level the recursion level - sets up field separators properly. 1-based.
-         * @return deserialized object
-         * @throws java.io.IOException
-         */
-        @SuppressWarnings("unchecked")
-        public Object deserializeHiveType(HCatFieldSchema field, HCatFieldSchema.Type customType, byte[] object,
-                                          int level) throws IOException {
-            assert level > 0;
-
-            // handle the null case properly.
-            if(object == null)
-                return null;
-
-            Object result;
-
-            HCatFieldSchema.Type type = customType != null ? customType : field.getType();
-
-            switch(type) {
-                case ARRAY:
-                {
-                    char separator = (char) separators[level];
-
-                    HCatFieldSchema arrayFieldSchema = field.getArrayElementSchema().getFields().get(0);
-
-                    List list = Lists.newArrayList();
-
-                    ByteArrayInputStream inputBuffer = new ByteArrayInputStream(object);
-
-                    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-
-                    int read = inputBuffer.read();
-                    while(read > -1) {
-                        byte b = (byte)read;
-
-                        if(b == separator) {
-                            list.add(deserializeHiveType(arrayFieldSchema, null, buffer.toByteArray(), level + 1));
-
-                            buffer.reset();
-                        } else {
-                            buffer.write(b);
-                        }
-
-                        read = inputBuffer.read();
-                    }
-
-                    if(buffer.size() > 0) {
-                        list.add(deserializeHiveType(arrayFieldSchema, null, buffer.toByteArray(), level + 1));
-                        buffer.reset();
-                    }
-
-                    result = list;
-
-                    break;
-                }
-                case MAP:
-                {
-                    char separator = (char) separators[level];
-                    char keyValueSeparator = (char) separators[level+1];
-
-                    Map mapData = Maps.newHashMap();
-
-                    ByteArrayInputStream inputBuffer = new ByteArrayInputStream(object);
-                    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-
-                    Object key = null;
-
-                    HCatFieldSchema.Type mapKeyType = field.getMapKeyType();
-                    HCatFieldSchema mapFieldSchema = field.getMapValueSchema().getFields().get(0);
-
-                    int read = inputBuffer.read();
-                    while(read > -1) {
-                        byte b = (byte)read;
-
-                        if(b == separator) {
-                            // end of the value
-
-                            Object value = deserializeHiveType(mapFieldSchema, null, buffer.toByteArray(), level + 2);
-                            mapData.put(key, value);
-                            buffer.reset();
-                        } else if(b == keyValueSeparator) {
-                            key = deserializeHiveType(mapFieldSchema, mapKeyType, buffer.toByteArray(), level + 2);
-
-                            buffer.reset();
-                        } else {
-                            buffer.write(b);
-                        }
-
-                        read = inputBuffer.read();
-                    }
-
-                    if(buffer.size() > 0) {
-                        Object value = deserializeHiveType(mapFieldSchema, null, buffer.toByteArray(), level + 2);
-                        mapData.put(key, value);
-                        buffer.reset();
-                    }
-
-                    result = mapData;
-
-                    break;
-                }
-                case STRUCT:
-                {
-                    char separator = (char)separators[level];
-
-                    Map structData = Maps.newHashMap();
-
-                    HCatSchema structSchema = field.getStructSubSchema();
-
-                    ByteArrayInputStream inputBuffer = new ByteArrayInputStream(object);
-                    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-
-                    for(HCatFieldSchema structField: structSchema.getFields()) {
-                        int read = inputBuffer.read();
-                        while(read > -1) {
-                            byte b = (byte)read;
-
-                            if(b == separator) {
-                                Object value = deserializeHiveType(structField, null, buffer.toByteArray(), level + 1);
-
-                                structData.put(structField.getName(), value);
-
-                                buffer.reset();
-
-                                // break to the outer loop here, we've finished this field.
-                                break;
-                            } else {
-                                buffer.write(b);
-                            }
-
-                            read = inputBuffer.read();
-                        }
-
-                        if(buffer.size() > 0) {
-                            Object value = deserializeHiveType(structField, null, buffer.toByteArray(), level + 1);
-
-                            structData.put(structField.getName(), value);
-
-                            buffer.reset();
-                        }
-                    }
-
-                    result = structData;
-
-                    break;
-                }
-                case BIGINT:
-                    result = Bytes.toLong(object);
-                    break;
-                case BINARY:
-                    result = object;
-                    break;
-                case BOOLEAN:
-                    result = Bytes.toBoolean(object);
-                    break;
-                case DOUBLE:
-                    result = Bytes.toDouble(object);
-                    break;
-                case FLOAT:
-                    result = Bytes.toFloat(object);
-                    break;
-                case INT:
-                    result = Bytes.toInt(object);
-                    break;
-                case SMALLINT:
-                    result = Bytes.toShort(object);
-                    break;
-                case STRING:
-                    result = Bytes.toString(object);
-                    break;
-                case TINYINT:
-                    result = object[0];
-                    break;
-                default:
-                    throw new IllegalArgumentException("unsupported type");
-            }
-
-            return result;
-        }
     }
 }

@@ -16,12 +16,18 @@
 
 package com.simplymeasured.prognosticator;
 
-import java.util.Map;
-
 /**
+ * An exception that represents difficulty acquiring a table handle
+ *
  * @author rob@simplymeasured.com
- * @since 6/2/13
+ * @since 6/5/13
  */
-public interface HiveReader {
-    Map<String, Object> readRow(String tableName, Object keyObject) throws Exception;
+public class TableAcquisitionException extends Exception {
+    public TableAcquisitionException(String message) {
+        super(message);
+    }
+
+    public TableAcquisitionException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

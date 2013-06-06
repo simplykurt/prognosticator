@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *  http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -45,8 +45,12 @@ public class HiveReaderImpl implements HiveReader {
 
     private HCatClient hcatClient;
     private Configuration hbaseConfiguration;
+    private HTableFactory tableFactory;
 
-    public HiveReaderImpl() {
+    public HiveReaderImpl(HCatClient hcatClient, Configuration hbaseConfiguration, HTableFactory tableFactory) {
+        this.hcatClient = hcatClient;
+        this.hbaseConfiguration = hbaseConfiguration;
+        this.tableFactory = tableFactory;
     }
 
     @Override
@@ -60,7 +64,7 @@ public class HiveReaderImpl implements HiveReader {
         HCatTable table = hcatClient.getTable("default", tableName);
         String hbaseTableName = HiveUtils.getTableName(table);
 
-        HTableInterface tableInterface = new HTable(hbaseConfiguration, hbaseTableName);
+        HTableInterface tableInterface = tableFactory.getTable(hbaseConfiguration, hbaseTableName);
 
         try {
             List<HCatFieldSchema> columns = table.getCols();
@@ -95,15 +99,5 @@ public class HiveReaderImpl implements HiveReader {
         }
 
         return result;
-    }
-
-    @Required
-    public void setHCatClient(HCatClient hcatClient) {
-        this.hcatClient = hcatClient;
-    }
-
-    @Required
-    public void setHBaseConfiguration(Configuration hbaseConfiguration) {
-        this.hbaseConfiguration = hbaseConfiguration;
     }
 }

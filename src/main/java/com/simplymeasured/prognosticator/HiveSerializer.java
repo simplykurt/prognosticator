@@ -18,6 +18,7 @@ package com.simplymeasured.prognosticator;
 
 import com.sun.org.apache.commons.logging.Log;
 import com.sun.org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hcatalog.api.HCatTable;
@@ -48,17 +49,20 @@ public class HiveSerializer {
     }
 
     /**
-     * Serialize an object into an HBase put
+     * Serialize an object into an HBase put and/or delete
+     *
+     * Any fields that have a NULL value will get added to the Delete object
      *
      * @param field field from the schema to serialize
      * @param mappingPosition where it's at in the column mapping
      * @param put the HBase Put object
+     * @param delete the HBase Delete object
      * @param object what to serialize
      * @param level the recursion level - sets up field separators properly. 1-based.
      * @throws java.io.IOException
      */
-    protected void serialize(HCatFieldSchema field, int mappingPosition, Put put, Object object, int level)
-            throws IOException {
+    protected void serialize(HCatFieldSchema field, int mappingPosition, Put put, Delete delete,
+                             Object object, int level) throws IOException {
         assert level > 0;
 
         List<String> columnMappings = HiveUtils.getColumnMappings(table);
@@ -84,7 +88,14 @@ public class HiveSerializer {
 
         byte[] result = serializeHiveType(field, null, object, level);
 
-        put.add(Bytes.toBytes(columnFamily), Bytes.toBytes(columnName), result);
+        byte[] columnFamilyBytes = Bytes.toBytes(columnFamily);
+        byte[] columnQualifierBytes = Bytes.toBytes(columnName);
+
+        if(result == null) {
+            delete.deleteColumn(columnFamilyBytes, columnQualifierBytes);
+        } else {
+            put.add(columnFamilyBytes, columnQualifierBytes, result);
+        }
     }
 
     protected byte[] serializeHiveType(HCatFieldSchema field, HCatFieldSchema.Type customType, Object object,

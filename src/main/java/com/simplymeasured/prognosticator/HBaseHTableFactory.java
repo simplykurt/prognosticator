@@ -16,12 +16,24 @@
 
 package com.simplymeasured.prognosticator;
 
-import java.util.Map;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.client.HTable;
+import org.apache.hadoop.hbase.client.HTableInterface;
+
+import java.io.IOException;
 
 /**
- * @author rob@simplymeasured.com
- * @since 6/2/13
+ * @author rob
+ * @since 6/5/13
  */
-public interface HiveReader {
-    Map<String, Object> readRow(String tableName, Object keyObject) throws Exception;
+public class HBaseHTableFactory implements HTableFactory {
+    @Override
+    public HTableInterface getTable(Configuration hbaseConfiguration, String tableName)
+            throws TableAcquisitionException {
+        try {
+            return new HTable(hbaseConfiguration, tableName);
+        } catch(IOException ioe) {
+            throw new TableAcquisitionException("Unable to get table handle from HBase!", ioe);
+        }
+    }
 }

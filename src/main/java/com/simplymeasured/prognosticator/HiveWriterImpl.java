@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *  http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,6 +22,7 @@ import com.google.common.collect.Lists;
 import com.sun.org.apache.commons.logging.Log;
 import com.sun.org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Put;
@@ -48,10 +49,14 @@ public class HiveWriterImpl implements HiveWriter {
 
     private HCatClient hcatClient;
     private Configuration hbaseConfiguration;
+    private HTableFactory tableFactory;
 
     private Cache<String, HCatTable> tableHandleCache;
 
-    public HiveWriterImpl() {
+    public HiveWriterImpl(HCatClient hcatClient, Configuration hbaseConfiguration, HTableFactory tableFactory) {
+        this.hcatClient = hcatClient;
+        this.hbaseConfiguration = hbaseConfiguration;
+        this.tableFactory = tableFactory;
         this.tableHandleCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(10, TimeUnit.MINUTES)
                 .build();
@@ -68,7 +73,7 @@ public class HiveWriterImpl implements HiveWriter {
 
         String hbaseTableName = HiveUtils.getTableName(table);
 
-        HTableInterface tableInterface = new HTable(hbaseConfiguration, hbaseTableName);
+        HTableInterface tableInterface = tableFactory.getTable(hbaseConfiguration, hbaseTableName);
         tableInterface.setAutoFlush(true);
 
         HiveSerializer serializer = new HiveSerializer(table);
@@ -77,8 +82,6 @@ public class HiveWriterImpl implements HiveWriter {
             List<HCatFieldSchema> columns = table.getCols();
 
             HCatFieldSchema keyColumn = columns.get(0);
-
-            Put put;
 
             final byte[] rowkey;
 
@@ -103,27 +106,24 @@ public class HiveWriterImpl implements HiveWriter {
                         keyRequiredColumns));
             }
 
-            put = new Put(rowkey);
+            Put put = new Put(rowkey);
+            Delete delete = new Delete(rowkey);
 
             for(int i = 1; i < columns.size(); i++) {
                 HCatFieldSchema columnSchema = columns.get(i);
 
-                serializer.serialize(columnSchema, i, put, entity.get(columnSchema.getName()), 1);
+                serializer.serialize(columnSchema, i, put, delete, entity.get(columnSchema.getName()), 1);
             }
 
-            tableInterface.put(put);
+            if(!put.isEmpty()) {
+                tableInterface.put(put);
+            }
+
+            if(!delete.isEmpty()) {
+                tableInterface.delete(delete);
+            }
         } finally {
             tableInterface.close();
         }
-    }
-
-    @Required
-    public void setHCatClient(HCatClient hcatClient) {
-        this.hcatClient = hcatClient;
-    }
-
-    @Required
-    public void setHBaseConfiguration(Configuration hbaseConfiguration) {
-        this.hbaseConfiguration = hbaseConfiguration;
     }
 }

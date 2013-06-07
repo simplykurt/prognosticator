@@ -39,6 +39,39 @@ import static org.mockito.Mockito.*;
  */
 @RunWith(PowerMockRunner.class)
 public class HiveSerializerTest {
+    @Test
+    public void testSerializeMap() throws Exception {
+        HCatTable table = mock(HCatTable.class);
+
+        HCatSchema mapSchema = new HCatSchema(Lists.newArrayList(
+                getSubFieldSchema("valueField", HCatFieldSchema.Type.BIGINT)));
+        HCatFieldSchema fieldSchema = new HCatFieldSchema("testField",
+                HCatFieldSchema.Type.MAP,
+                HCatFieldSchema.Type.STRING,
+                mapSchema, "");
+
+        HiveSerializer serializer = new HiveSerializer(table);
+
+        Map<String, Long> testMap = Maps.newLinkedHashMap();
+        testMap.put("field1", 123L);
+        testMap.put("field2", 456L);
+
+        byte[] result = serializer.serializeMap(fieldSchema, testMap, 1);
+
+        ByteArrayOutputStream expectedResult = new ByteArrayOutputStream();
+        expectedResult.write(Bytes.toBytes("field1"));
+        expectedResult.write('\003');
+        expectedResult.write(Bytes.toBytes(123L));
+        expectedResult.write('\002');
+        expectedResult.write(Bytes.toBytes("field2"));
+        expectedResult.write('\003');
+        expectedResult.write(Bytes.toBytes(456L));
+
+        byte[] expectedResultBytes = expectedResult.toByteArray();
+
+        Assert.assertArrayEquals(expectedResultBytes, result);
+    }
+
     /**
      * Ensure we can do a basic serialization of a STRUCT
      *
@@ -59,11 +92,11 @@ public class HiveSerializerTest {
         testMap.put("intField", 123L);
         testMap.put("strField", "This is a string");
 
-        byte[] result = serializer.serializeStruct(fieldSchema, testMap, 0);
+        byte[] result = serializer.serializeStruct(fieldSchema, testMap, 1);
 
         ByteArrayOutputStream expectedResult = new ByteArrayOutputStream();
         expectedResult.write(Bytes.toBytes(123L));
-        expectedResult.write('\001');
+        expectedResult.write('\002');
         expectedResult.write(Bytes.toBytes("This is a string"));
 
         Assert.assertArrayEquals(expectedResult.toByteArray(), result);
@@ -87,7 +120,37 @@ public class HiveSerializerTest {
 
         Map<String, Object> testMap = Maps.newHashMap();
 
-        serializer.serializeStruct(fieldSchema, testMap, 0);
+        serializer.serializeStruct(fieldSchema, testMap, 1);
+    }
+
+    @Test
+    public void testEscapedStrings() {
+        HCatTable table = mock(HCatTable.class);
+        HiveSerializer serializer = new HiveSerializer(table);
+
+        String stringWithNulls = "this\0null";
+
+        Assert.assertArrayEquals(
+                new byte[] { 't', 'h', 'i', 's', '\\', '\0', 'n', 'u', 'l', 'l' },
+                serializer.escapeString(stringWithNulls));
+
+        for(int i = 1; i < 8; i++) {
+            String stringWithSeparator = "this" + (char)i + "null";
+
+            Assert.assertArrayEquals(stringWithSeparator,
+                    new byte[] { 't', 'h', 'i', 's', '\\', (byte)i, 'n', 'u', 'l', 'l' },
+                    serializer.escapeString(stringWithSeparator));
+        }
+
+        String stringWithEscapeChar = "string\\escape";
+        Assert.assertArrayEquals(stringWithEscapeChar,
+                new byte[] { 's', 't', 'r', 'i', 'n', 'g', '\\', '\\', 'e', 's', 'c', 'a', 'p', 'e' },
+                serializer.escapeString(stringWithEscapeChar));
+
+        String stringWithLineBreak = "string\nline";
+        Assert.assertArrayEquals(stringWithLineBreak,
+                new byte[] { 's', 't', 'r', 'i', 'n', 'g', '\\', '\n', 'l', 'i', 'n', 'e' },
+                serializer.escapeString(stringWithLineBreak));
     }
 
     protected HCatFieldSchema getSubFieldSchema(String fieldName, HCatFieldSchema.Type type) throws HCatException {

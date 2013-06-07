@@ -41,11 +41,26 @@ public class HiveSerializer {
 
     protected byte[] separators;
     private HCatTable table;
+    private final char escapeChar = '\\';
+    private final boolean[] needsEscape = new boolean[128];
 
     public HiveSerializer(HCatTable table) {
         this.table = table;
 
         this.separators = HiveUtils.getSeparators(table);
+
+        for (int i = 0; i < 128; i++) {
+            this.needsEscape[i] = false;
+        }
+        this.needsEscape[this.escapeChar] = true;
+        this.needsEscape[10] = true; // this is \n
+        for (int i = 0; i < this.separators.length; i++) {
+            this.needsEscape[this.separators[i]] = true;
+        }
+
+        for(int i = 0; i < 32; i++) {
+            this.needsEscape[i] = true;
+        }
     }
 
     /**
@@ -140,7 +155,8 @@ public class HiveSerializer {
                     result = Bytes.toBytes((Short)object);
                     break;
                 case STRING:
-                    result = Bytes.toBytes((String)object);
+                    result = Bytes.toBytes(org.apache.hadoop.hive.ql.metadata.HiveUtils.escapeString((String)object));
+//                    result = escapeString((String)object);
                     break;
                 case TINYINT:
                     result = Bytes.toBytes((Byte)object);
@@ -234,5 +250,28 @@ public class HiveSerializer {
         }
 
         return baos.toByteArray();
+    }
+
+    protected byte[] escapeString(String string) {
+        byte[] bytes = Bytes.toBytes(string);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        int start = 0;
+        int len = bytes.length;
+
+        int end = start + len;
+        for (int i = start; i <= end; i++) {
+            if (i == end || (bytes[i] >= 0 && needsEscape[bytes[i]])) {
+                if (i > start) {
+                    out.write(bytes, start, i - start);
+                }
+                start = i;
+                if (i < len) {
+                    out.write(escapeChar);
+                    // the current char will be written out later.
+                }
+            }
+        }
+
+        return out.toByteArray();
     }
 }

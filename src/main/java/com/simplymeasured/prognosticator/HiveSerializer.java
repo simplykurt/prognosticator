@@ -155,8 +155,7 @@ public class HiveSerializer {
                     result = Bytes.toBytes((Short)object);
                     break;
                 case STRING:
-                    result = Bytes.toBytes(org.apache.hadoop.hive.ql.metadata.HiveUtils.escapeString((String)object));
-//                    result = escapeString((String)object);
+                    result = Bytes.toBytes(HiveUtils.escapeString((String)object));
                     break;
                 case TINYINT:
                     result = Bytes.toBytes((Byte)object);
@@ -250,28 +249,5 @@ public class HiveSerializer {
         }
 
         return baos.toByteArray();
-    }
-
-    protected byte[] escapeString(String string) {
-        byte[] bytes = Bytes.toBytes(string);
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        int start = 0;
-        int len = bytes.length;
-
-        int end = start + len;
-        for (int i = start; i <= end; i++) {
-            if (i == end || (bytes[i] >= 0 && needsEscape[bytes[i]])) {
-                if (i > start) {
-                    out.write(bytes, start, i - start);
-                }
-                start = i;
-                if (i < len) {
-                    out.write(escapeChar);
-                    // the current char will be written out later.
-                }
-            }
-        }
-
-        return out.toByteArray();
     }
 }

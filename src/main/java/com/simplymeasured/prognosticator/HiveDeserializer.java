@@ -147,7 +147,7 @@ public class HiveDeserializer {
                 result = Bytes.toShort(object);
                 break;
             case STRING:
-                result = Bytes.toString(object);
+                result = HiveUtils.unescapeString(Bytes.toString(object));
                 break;
             case TINYINT:
                 result = object[0];

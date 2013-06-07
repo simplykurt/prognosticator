@@ -123,36 +123,6 @@ public class HiveSerializerTest {
         serializer.serializeStruct(fieldSchema, testMap, 1);
     }
 
-    @Test
-    public void testEscapedStrings() {
-        HCatTable table = mock(HCatTable.class);
-        HiveSerializer serializer = new HiveSerializer(table);
-
-        String stringWithNulls = "this\0null";
-
-        Assert.assertArrayEquals(
-                new byte[] { 't', 'h', 'i', 's', '\\', '\0', 'n', 'u', 'l', 'l' },
-                serializer.escapeString(stringWithNulls));
-
-        for(int i = 1; i < 8; i++) {
-            String stringWithSeparator = "this" + (char)i + "null";
-
-            Assert.assertArrayEquals(stringWithSeparator,
-                    new byte[] { 't', 'h', 'i', 's', '\\', (byte)i, 'n', 'u', 'l', 'l' },
-                    serializer.escapeString(stringWithSeparator));
-        }
-
-        String stringWithEscapeChar = "string\\escape";
-        Assert.assertArrayEquals(stringWithEscapeChar,
-                new byte[] { 's', 't', 'r', 'i', 'n', 'g', '\\', '\\', 'e', 's', 'c', 'a', 'p', 'e' },
-                serializer.escapeString(stringWithEscapeChar));
-
-        String stringWithLineBreak = "string\nline";
-        Assert.assertArrayEquals(stringWithLineBreak,
-                new byte[] { 's', 't', 'r', 'i', 'n', 'g', '\\', '\n', 'l', 'i', 'n', 'e' },
-                serializer.escapeString(stringWithLineBreak));
-    }
-
     protected HCatFieldSchema getSubFieldSchema(String fieldName, HCatFieldSchema.Type type) throws HCatException {
         HCatFieldSchema result = new HCatFieldSchema(fieldName, type, "");
 

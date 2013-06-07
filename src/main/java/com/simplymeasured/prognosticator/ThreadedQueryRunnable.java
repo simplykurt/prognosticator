@@ -89,6 +89,8 @@ public class ThreadedQueryRunnable implements Runnable {
                                 } else {
                                     value = null;
                                 }
+                            } else if("string".equalsIgnoreCase(columnTypeName)) {
+                                value = HiveUtils.unescapeString(resultSet.getString(i));
                             } else {
                                 value = resultSet.getObject(i);
                             }

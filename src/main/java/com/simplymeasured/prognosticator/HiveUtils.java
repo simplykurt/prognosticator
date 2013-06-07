@@ -111,6 +111,10 @@ public class HiveUtils {
     }
 
     public static String escapeString(String text) {
+        if(text == null) {
+            return null;
+        }
+
         int length = text.length();
         char[] textChars = text.toCharArray();
 
@@ -167,6 +171,10 @@ public class HiveUtils {
     }
 
     public static String unescapeString(String text) {
+        if(text == null) {
+            return null;
+        }
+
         StringBuilder result = new StringBuilder();
 
         int length = text.length();

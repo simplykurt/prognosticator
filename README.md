@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/simplymeasured/prognosticator.png)](https://travis-ci.org/simplymeasured/prognosticator)
+
 prognosticator
 ==============
 

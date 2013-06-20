@@ -32,6 +32,7 @@ import org.apache.hcatalog.data.schema.HCatSchema;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
@@ -48,10 +49,13 @@ public class HiveWriterImpl implements HiveWriter {
 
     private static final Cache<String, HCatTable> TABLE_HANDLE_CACHE;
 
+    public static final String TABLE_CACHE_SIZE = "prognosticator.table_cache_size";
+    public static final String TABLE_CACHE_EXPIRATION_MINUTES = "prognosticator.table_cache_expiration_minutes";
+
     static {
         TABLE_HANDLE_CACHE = CacheBuilder.newBuilder()
-//                .maximumSize(100)
-                .expireAfterWrite(10, TimeUnit.MINUTES)
+                .maximumSize(Long.getLong(TABLE_CACHE_SIZE, 100))
+                .expireAfterWrite(Long.getLong(TABLE_CACHE_EXPIRATION_MINUTES, 10), TimeUnit.MINUTES)
                 .build();
     }
 

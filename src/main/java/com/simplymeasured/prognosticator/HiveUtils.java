@@ -39,14 +39,14 @@ public class HiveUtils {
     public static final String HBASE_TABLE_NAME = "hbase.table.name";
     public static final String HBASE_COLUMNS_MAPPING = "hbase.columns.mapping";
 
-    static final char[] escapeEscapeBytes = "\\\\".toCharArray();
-    static final char[] escapeUnescapeBytes = "\\".toCharArray();
-    static final char[] newLineEscapeBytes = "\\n".toCharArray();
-    static final char[] newLineUnescapeBytes = "\n".toCharArray();
-    static final char[] carriageReturnEscapeBytes = "\\r".toCharArray();
-    static final char[] carriageReturnUnescapeBytes = "\r".toCharArray();
-    static final char[] tabEscapeBytes = "\\t".toCharArray();
-    static final char[] tabUnescapeBytes = "\t".toCharArray();
+    static final char[] escapeEscapeBytes = new char[] { '\\', '\\', '\\', '\\'};
+    static final char[] escapeUnescapeBytes = new char[] { '\\' };
+    static final char[] newLineEscapeBytes = new char[] { '\\', '\\', 'n' };
+    static final char[] newLineUnescapeBytes = new char[] { '\n' };
+    static final char[] carriageReturnEscapeBytes = new char[] { '\\', '\\', 'r' };
+    static final char[] carriageReturnUnescapeBytes = new char[] { '\r' };
+    static final char[] tabEscapeBytes = new char[] { '\\', '\\', 't' };
+    static final char[] tabUnescapeBytes = new char[] { '\t' };
     static final char[] ctrlABytes = "\u0001".toCharArray();
 
     /**

@@ -23,18 +23,13 @@ import com.sun.org.apache.commons.logging.Log;
 import com.sun.org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.Delete;
-import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Put;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hcatalog.api.HCatClient;
 import org.apache.hcatalog.api.HCatTable;
 import org.apache.hcatalog.data.schema.HCatFieldSchema;
 import org.apache.hcatalog.data.schema.HCatSchema;
-import org.springframework.beans.factory.annotation.Required;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -51,21 +46,24 @@ public class HiveWriterImpl implements HiveWriter {
     private Configuration hbaseConfiguration;
     private HTableFactory tableFactory;
 
-    private Cache<String, HCatTable> tableHandleCache;
+    private static final Cache<String, HCatTable> TABLE_HANDLE_CACHE;
 
-    public HiveWriterImpl(HCatClient hcatClient, Configuration hbaseConfiguration, HTableFactory tableFactory) {
-        this.hcatClient = hcatClient;
-        this.hbaseConfiguration = hbaseConfiguration;
-        this.tableFactory = tableFactory;
-        this.tableHandleCache = CacheBuilder.newBuilder()
+    static {
+        TABLE_HANDLE_CACHE = CacheBuilder.newBuilder()
 //                .maximumSize(100)
                 .expireAfterWrite(10, TimeUnit.MINUTES)
                 .build();
     }
 
+    public HiveWriterImpl(HCatClient hcatClient, Configuration hbaseConfiguration, HTableFactory tableFactory) {
+        this.hcatClient = hcatClient;
+        this.hbaseConfiguration = hbaseConfiguration;
+        this.tableFactory = tableFactory;
+    }
+
     @Override
     public void writeRow(final String tableName, Map<String, Object> entity) throws Exception {
-        HCatTable table = tableHandleCache.get(tableName, new Callable<HCatTable>() {
+        HCatTable table = TABLE_HANDLE_CACHE.get(tableName, new Callable<HCatTable>() {
             @Override
             public HCatTable call() throws Exception {
                 LOG.info(String.format("Cache miss for table handle, retrieving %s", tableName));

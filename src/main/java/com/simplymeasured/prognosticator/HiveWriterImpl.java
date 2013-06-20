@@ -58,6 +58,7 @@ public class HiveWriterImpl implements HiveWriter {
         this.hbaseConfiguration = hbaseConfiguration;
         this.tableFactory = tableFactory;
         this.tableHandleCache = CacheBuilder.newBuilder()
+//                .maximumSize(100)
                 .expireAfterWrite(10, TimeUnit.MINUTES)
                 .build();
     }
@@ -67,6 +68,8 @@ public class HiveWriterImpl implements HiveWriter {
         HCatTable table = tableHandleCache.get(tableName, new Callable<HCatTable>() {
             @Override
             public HCatTable call() throws Exception {
+                LOG.info(String.format("Cache miss for table handle, retrieving %s", tableName));
+
                 return hcatClient.getTable("default", tableName);
             }
         });

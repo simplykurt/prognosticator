@@ -16,14 +16,24 @@
 
 package com.simplymeasured.prognosticator;
 
-import java.util.Iterator;
-import java.util.Map;
-
 /**
+ * An interface denoting a forward-only cursor for interacting with a query
+ *
  * @author rob@simplymeasured.com
- * @since 6/2/13
+ * @since 6/24/13
  */
-public interface HiveJDBCQuery {
-    Iterator<Map<String, Object>> runQuery(String resultTable, String queryStatement,
-                                           Map<String, Object> parameters);
+public interface QueryCursor<T> {
+    /**
+     * Move the cursor forward one row, if available.
+     *
+     * @return true if a row is available.
+     */
+    public boolean next();
+
+    /**
+     * Retrieve the row at our current position
+     *
+     * @return row as T
+     */
+    public T get();
 }
